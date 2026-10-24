@@ -27,15 +27,15 @@ class IdentityModeTests(unittest.TestCase):
         self.settings = Settings(data_dir=Path(self.temporary.name))
         self.store = Storage(Path(self.temporary.name) / "identity.sqlite3")
         self.store.save_messages("feishu", [message(), message(OTHER)])
-        self.store.save_member_names("feishu", "a", [{"sender_id": SELF, "name": "李成龙"},
-                                                    {"sender_id": OTHER, "name": "种楠"}])
+        self.store.save_member_names("feishu", "a", [{"sender_id": SELF, "name": "示例成员甲"},
+                                                    {"sender_id": OTHER, "name": "示例成员乙"}])
 
     def report(self):
         return build_report(self.store, self.settings, source="feishu", period="daily", anchor_date=str(DAY),
                             audience="personal", chat_ids=["a"], sender_ids=[SELF], use_llm=False)
 
     def test_upgrade_defaults_to_official_keeps_legacy_profile_preferences_and_reports(self):
-        self.store.save_profile("feishu", SELF, "船长")
+        self.store.save_profile("feishu", SELF, "示例昵称")
         self.store.save_preferences("feishu", ["a"], "weekly", "personal", SELF)
         old_report = self.report()
         profile = self.store.profile("feishu")
@@ -44,8 +44,8 @@ class IdentityModeTests(unittest.TestCase):
             db.execute("DROP TABLE identity_settings")
             db.execute("PRAGMA user_version=2")
         upgraded = Storage(self.store.path)
-        self.assertEqual(upgraded.identity("feishu"), {"sender_id": SELF, "nickname": "船长", "mode": "official",
-            "official_name": "李成龙", "display_name": "李成龙", "name_source": "official", "notice": ""})
+        self.assertEqual(upgraded.identity("feishu"), {"sender_id": SELF, "nickname": "示例昵称", "mode": "official",
+            "official_name": "示例成员甲", "display_name": "示例成员甲", "name_source": "official", "notice": ""})
         self.assertEqual(upgraded.profile("feishu"), profile)
         self.assertEqual(upgraded.preferences("feishu"), preferences)
         self.assertEqual(upgraded.report(old_report["id"]), old_report)
@@ -57,33 +57,33 @@ class IdentityModeTests(unittest.TestCase):
         with closing(sqlite3.connect(backup)) as db:
             self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 2)
             self.assertIsNone(db.execute("SELECT 1 FROM sqlite_master WHERE name='identity_settings'").fetchone())
-            self.assertEqual(db.execute("SELECT nickname FROM profiles WHERE source='feishu'").fetchone()[0], "船长")
+            self.assertEqual(db.execute("SELECT nickname FROM profiles WHERE source='feishu'").fetchone()[0], "示例昵称")
         with upgraded.connect() as db:
             self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 4)
 
     def test_mode_switch_preserves_nickname_identity_and_preferences_across_restart(self):
-        self.store.save_identity("feishu", SELF, "nickname", "船长")
+        self.store.save_identity("feishu", SELF, "nickname", "示例昵称")
         self.store.save_preferences("feishu", ["a"], "daily", "personal", SELF)
         expected_preferences = self.store.preferences("feishu")
         selected = self.store.save_identity("feishu", SELF, "official")
-        self.assertEqual((selected["nickname"], selected["display_name"], selected["name_source"]), ("船长", "李成龙", "official"))
-        self.assertEqual(self.store.profile("feishu"), {"sender_id": SELF, "nickname": "船长"})
+        self.assertEqual((selected["nickname"], selected["display_name"], selected["name_source"]), ("示例昵称", "示例成员甲", "official"))
+        self.assertEqual(self.store.profile("feishu"), {"sender_id": SELF, "nickname": "示例昵称"})
         self.assertEqual(self.store.preferences("feishu"), expected_preferences)
         reopened = Storage(self.store.path)
         self.assertEqual(reopened.identity("feishu", SELF), selected)
         nick = reopened.save_identity("feishu", SELF, "nickname")
-        self.assertEqual((nick["display_name"], nick["name_source"]), ("船长", "nickname"))
+        self.assertEqual((nick["display_name"], nick["name_source"]), ("示例昵称", "nickname"))
         self.assertEqual(Storage(self.store.path).identity("feishu", SELF)["mode"], "nickname")
 
     def test_modes_and_nickname_text_are_isolated_by_sender_and_source(self):
         self.store.save_messages("demo", [message()])
-        self.store.save_identity("feishu", SELF, "nickname", "船长")
+        self.store.save_identity("feishu", SELF, "nickname", "示例昵称")
         other = self.store.identity("feishu", OTHER)
         self.assertEqual(other["nickname"], "")
-        self.assertEqual(other["display_name"], "种楠")
+        self.assertEqual(other["display_name"], "示例成员乙")
         self.assertEqual(self.store.identity("demo", SELF)["nickname"], "")
         self.store.save_identity("feishu", OTHER, "nickname", "同事昵称")
-        self.assertEqual(self.store.identity("feishu", SELF)["nickname"], "船长")
+        self.assertEqual(self.store.identity("feishu", SELF)["nickname"], "示例昵称")
         self.store.save_identity("feishu", SELF, "official")
         self.assertEqual(self.store.identity("feishu")["sender_id"], SELF)
         self.assertEqual(self.store.identity("feishu", OTHER)["nickname"], "同事昵称")
@@ -94,7 +94,7 @@ class IdentityModeTests(unittest.TestCase):
         self.assertEqual(self.store.resolve_display_name("feishu", OTHER, OTHER), "同事备注")
         saved = self.store.save_identity("feishu", SELF, "official", "保存但不启用")
         self.assertEqual(saved["nickname"], "保存但不启用")
-        self.assertEqual(saved["display_name"], "李成龙")
+        self.assertEqual(saved["display_name"], "示例成员甲")
         self.assertEqual(self.store.resolve_display_name("feishu", OTHER, OTHER), "同事备注")
         self.assertEqual(self.store.members("feishu", ["a"])[0]["name_source"], "alias")
 
@@ -127,26 +127,26 @@ class IdentityModeTests(unittest.TestCase):
         self.assertEqual(self.store.identity("demo")["sender_id"], "")
 
     def test_legacy_profile_explicit_save_still_enables_nickname_and_clear_resets(self):
-        self.assertEqual(self.store.save_profile("feishu", SELF, "船长"), {"sender_id": SELF, "nickname": "船长"})
+        self.assertEqual(self.store.save_profile("feishu", SELF, "示例昵称"), {"sender_id": SELF, "nickname": "示例昵称"})
         self.assertEqual(self.store.identity("feishu", SELF)["mode"], "nickname")
-        self.assertEqual(self.store.resolve_display_name("feishu", SELF, SELF), "船长")
+        self.assertEqual(self.store.resolve_display_name("feishu", SELF, SELF), "示例昵称")
         self.assertEqual(self.store.save_profile("feishu", "", ""), {"sender_id": "", "nickname": ""})
         self.assertEqual(self.store.identity("feishu", SELF)["mode"], "official")
-        self.assertEqual(self.store.resolve_display_name("feishu", SELF, SELF), "李成龙")
+        self.assertEqual(self.store.resolve_display_name("feishu", SELF, SELF), "示例成员甲")
 
     def test_messages_senders_and_new_reports_follow_modes_without_mutating_history(self):
-        self.store.save_identity("feishu", SELF, "nickname", "船长")
+        self.store.save_identity("feishu", SELF, "nickname", "示例昵称")
         old = self.report()
         self.store.save_identity("feishu", SELF, "official")
         messages = {row["sender_id"]: row for row in self.store.messages("feishu")}
         senders = {row["sender_id"]: row for row in self.store.senders("feishu")}
-        self.assertEqual((messages[SELF]["display_name"], senders[SELF]["display_name"]), ("李成龙", "李成龙"))
+        self.assertEqual((messages[SELF]["display_name"], senders[SELF]["display_name"]), ("示例成员甲", "示例成员甲"))
         self.assertEqual(messages[SELF]["name_source"], "official")
         fresh = self.report()
-        self.assertIn("汇报人：李成龙", fresh["markdown"])
-        self.assertEqual(fresh["evidence"][0]["sender_name"], "李成龙")
+        self.assertIn("汇报人：示例成员甲", fresh["markdown"])
+        self.assertEqual(fresh["evidence"][0]["sender_name"], "示例成员甲")
         self.assertEqual(self.store.report(old["id"]), old)
-        self.assertEqual(self.store.report(old["id"])["evidence"][0]["sender_name"], "船长")
+        self.assertEqual(self.store.report(old["id"])["evidence"][0]["sender_name"], "示例昵称")
 
 
 if __name__ == "__main__":

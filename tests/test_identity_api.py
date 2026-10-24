@@ -30,15 +30,15 @@ class IdentityAndCoverageTests(unittest.TestCase):
         self.store.save_messages("demo", [message("d", "same", 10, "示例成员")])
         self.assertEqual(self.app.get("/api/profile", {"source": ["feishu"]}),
                          {"profile": {"sender_id": "", "nickname": ""}})
-        saved = self.app.post("/api/profile", {"source": "feishu", "sender_id": "same", "nickname": "  船长  "})
-        self.assertEqual(saved["profile"], {"sender_id": "same", "nickname": "船长"})
+        saved = self.app.post("/api/profile", {"source": "feishu", "sender_id": "same", "nickname": "  示例昵称  "})
+        self.assertEqual(saved["profile"], {"sender_id": "same", "nickname": "示例昵称"})
         restarted = Application(self.settings)
         self.assertEqual(restarted.get("/api/profile", {"source": ["feishu"]}), saved)
         self.assertEqual(restarted.get("/api/profile", {"source": ["demo"]})["profile"]["nickname"], "")
         live = self.store.messages("feishu")[0]
         self.assertEqual(live["sender_name"], "same")
-        self.assertEqual(live["display_name"], "船长")
-        self.assertEqual(self.store.senders("feishu")[0]["display_name"], "船长")
+        self.assertEqual(live["display_name"], "示例昵称")
+        self.assertEqual(self.store.senders("feishu")[0]["display_name"], "示例昵称")
         self.assertEqual(self.store.messages("demo")[0]["display_name"], "示例成员")
 
     def test_profile_rejects_unknown_unsynced_and_other_source_senders(self):
@@ -57,7 +57,7 @@ class IdentityAndCoverageTests(unittest.TestCase):
 
     def test_profile_validation_and_explicit_clear(self):
         self.store.save_messages("feishu", [message("f", "self", 10)])
-        for nickname in ("x" * 31, "船\n长", "船\x00长", "\u202e船长", None, []):
+        for nickname in ("x" * 31, "示例\n昵称", "示例\x00昵称", "\u202e示例昵称", None, []):
             with self.subTest(nickname=nickname), self.assertRaises(ValueError):
                 self.app.post("/api/profile", {"source": "feishu", "sender_id": "self", "nickname": nickname})
         self.app.post("/api/profile", {"source": "feishu", "sender_id": "self", "nickname": "本人"})

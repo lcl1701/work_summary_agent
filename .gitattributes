@@ -1,0 +1,6 @@
+# Normalize text files to LF; detect binary files automatically.
+* text=auto eol=lf
+
+# Use CRLF for Windows command scripts.
+*.bat text eol=crlf
+*.cmd text eol=crlf

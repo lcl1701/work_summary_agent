@@ -37,12 +37,12 @@ class ReportDisplayTests(unittest.TestCase):
         return build_report(self.store, self.settings, **options)
 
     def test_local_nickname_readable_body_and_saved_identity(self):
-        self.store.save_profile("feishu", SELF, "船长")
+        self.store.save_profile("feishu", SELF, "示例昵称")
         report = self.report()
         body = report["markdown"].split("## 消息来源", 1)[0]
-        self.assertIn("汇报人：船长", body)
+        self.assertIn("汇报人：示例昵称", body)
         self.assertIn("- 已完成接口测试 [M001]", body)
-        self.assertNotIn("- 船长：已完成接口测试", body)
+        self.assertNotIn("- 示例昵称：已完成接口测试", body)
         self.assertNotIn(SELF, body)
         self.assertNotIn(SELF.replace("_", "\\_"), body)
         self.assertEqual(report["sender_ids"], [SELF])
@@ -63,17 +63,17 @@ class ReportDisplayTests(unittest.TestCase):
         self.assertEqual(report["message_count"], 2)
 
     def test_same_display_name_does_not_merge_two_authors(self):
-        self.store.save_profile("feishu", SELF, "船长")
-        self.store.save_messages("feishu", [self.message("theirs", OTHER, "船长")])
+        self.store.save_profile("feishu", SELF, "示例昵称")
+        self.store.save_messages("feishu", [self.message("theirs", OTHER, "示例昵称")])
         report = self.report(audience="project")
         body = report["markdown"].split("## 消息来源", 1)[0]
-        self.assertRegex(body, r"船长（[A-Z0-9]{6}）")
+        self.assertRegex(body, r"示例昵称（[A-Z0-9]{6}）")
         self.assertEqual(len({m["sender_name"] for m in report["evidence"]}), 2)
         self.assertIn("[M001]", body)
         self.assertIn("[M002]", body)
 
     def test_renaming_only_affects_new_reports_and_survives_reopen(self):
-        self.store.save_profile("feishu", SELF, "船长")
+        self.store.save_profile("feishu", SELF, "示例昵称")
         old = self.report()
         self.store.save_profile("feishu", SELF, "项目负责人")
         reopened = Storage(self.store.path)
@@ -82,10 +82,10 @@ class ReportDisplayTests(unittest.TestCase):
         self.assertIn("项目负责人", self.report()["markdown"])
 
     def test_untrusted_nickname_is_quoted_not_active_html(self):
-        self.store.save_profile("feishu", SELF, "<b>船长</b>")
+        self.store.save_profile("feishu", SELF, "<b>示例昵称</b>")
         markdown = self.report()["markdown"]
         self.assertNotIn("<b>", markdown)
-        self.assertIn("&lt;b&gt;船长&lt;/b&gt;", markdown)
+        self.assertIn("&lt;b&gt;示例昵称&lt;/b&gt;", markdown)
 
     def test_empty_selected_chat_remains_in_scope_and_coverage_snapshot(self):
         report = self.report(chat_ids=["a", "b"])
@@ -96,7 +96,7 @@ class ReportDisplayTests(unittest.TestCase):
         self.assertEqual(self.store.report(report["id"])["coverage"], report["coverage"])
 
     def test_report_leads_with_work_and_moves_detailed_statistics_to_appendix(self):
-        self.store.save_profile("feishu", SELF, "船长")
+        self.store.save_profile("feishu", SELF, "示例昵称")
         markdown = self.report()["markdown"]
         headings = [line for line in markdown.splitlines() if line.startswith("## ")]
         self.assertEqual(headings, ["## 本期成果", "## 工作进展", "## 风险与待协调", "## 下一步计划",
@@ -113,18 +113,18 @@ class ReportDisplayTests(unittest.TestCase):
         self.assertIn("图片、附件", notes)
 
     def test_project_template_keeps_author_on_every_work_item(self):
-        self.store.save_profile("feishu", SELF, "船长")
+        self.store.save_profile("feishu", SELF, "示例昵称")
         self.store.save_messages("feishu", [self.message("theirs", OTHER, "同事")])
         markdown = self.report(audience="project")["markdown"]
         main = markdown.split("## 统计与覆盖说明", 1)[0]
         self.assertIn("项目进展汇报", main)
-        self.assertIn("- 船长：已完成接口测试 [M001]", main)
+        self.assertIn("- 示例昵称：已完成接口测试 [M001]", main)
         self.assertIn("- 同事：已完成接口测试 [M002]", main)
 
     def test_uncertain_meeting_record_is_not_promoted_to_an_achievement(self):
         item = self.message("work-list", SELF)
-        item["text"] = ("1、完成三维扫描仪软件测试用例编写\n2、完成测试平台接口自动化代码编写\n"
-                        "3、完成测试用例评审\n4、会议纪要记录本次需求评审记录")
+        item["text"] = ("1、完成示例模块测试用例编写\n2、完成示例脚本编写\n"
+                        "3、完成示例用例评审\n4、会议纪要记录示例方案评审内容")
         self.store.save_messages("feishu", [item], replace_range=(
             ["a"], timestamp(DAY), timestamp(date(2026, 10, 21))))
         report = self.report()
@@ -133,7 +133,7 @@ class ReportDisplayTests(unittest.TestCase):
         extra = markdown.split("## 补充记录", 1)[1].split("## 统计与覆盖说明", 1)[0]
         self.assertEqual(achievements.count("[M001]"), 3)
         self.assertNotIn("会议纪要", achievements)
-        self.assertIn("会议纪要记录本次需求评审记录 [M001]", extra)
+        self.assertIn("会议纪要记录示例方案评审内容 [M001]", extra)
         self.assertEqual(report["message_count"], 1)
         self.assertNotIn("[M002]", markdown)
 
